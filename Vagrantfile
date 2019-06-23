@@ -15,6 +15,7 @@ Vagrant.configure("2") do |config|
     config.vm.network "private_network", ip: nil, virtualbox__intnet: "dpdk-int-2"
 
     config.vm.synced_folder ".", "/host"
+    config.vm.provision "file", source: "~/.ssh/local/id_ed25519.pub", destination: "/tmp/authorized_keys"
     config.vm.provision "shell", path: "./scripts/provision-dpdk.sh"
   end
 end
