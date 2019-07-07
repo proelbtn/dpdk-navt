@@ -19,11 +19,9 @@
 
 static const struct rte_eth_conf port_conf_default = {
 	.rxmode = {
-		.max_rx_pkt_len = RTE_ETHER_MAX_LEN,
+		.max_rx_pkt_len = ETHER_MAX_LEN,
 	},
 };
-
-/* basicfwd.c: Basic DPDK skeleton forwarding example. */
 
 /*
  * Initializes a given port using global settings and with the RX buffers
@@ -82,7 +80,7 @@ port_init(uint16_t port, struct rte_mempool *mbuf_pool)
 		return retval;
 
 	/* Display the port MAC address. */
-	struct rte_ether_addr addr;
+	struct ether_addr addr;
 	rte_eth_macaddr_get(port, &addr);
 	printf("Port %u MAC: %02" PRIx8 " %02" PRIx8 " %02" PRIx8
 			   " %02" PRIx8 " %02" PRIx8 " %02" PRIx8 "\n",
