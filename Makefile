@@ -1,23 +1,62 @@
-all: usage
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright(c) 2010-2014 Intel Corporation
 
-usage:
+# binary name
+APP = navt
 
-up: ssh-keyclean machine-up ssh-keyscan ssh-keyreplace
+# all source are stored in SRCS-y
+SRCS-y := src/main.c
 
-destroy: machine-destroy ssh-keyclean
+# Build using pkg-config variables if possible
+$(shell pkg-config --exists libdpdk)
+ifeq ($(.SHELLSTATUS),0)
 
-machine-up:
-	vagrant up
+all: shared
+.PHONY: shared static
+shared: build/$(APP)-shared
+	ln -sf $(APP)-shared build/$(APP)
+static: build/$(APP)-static
+	ln -sf $(APP)-static build/$(APP)
 
-machine-destroy:
-	vagrant destroy -f
+PC_FILE := $(shell pkg-config --path libdpdk)
+CFLAGS += -O3 $(shell pkg-config --cflags libdpdk)
+LDFLAGS_SHARED = $(shell pkg-config --libs libdpdk)
+LDFLAGS_STATIC = -Wl,-Bstatic $(shell pkg-config --static --libs libdpdk)
 
-ssh-keyclean:
-	ssh-keygen -R '[127.0.0.1]:2222'
+build/$(APP)-shared: $(SRCS-y) Makefile $(PC_FILE) | build
+	$(CC) $(CFLAGS) $(SRCS-y) -o $@ $(LDFLAGS) $(LDFLAGS_SHARED)
 
-ssh-keyreplace:
-	scp -i .vagrant/machines/dpdk/virtualbox/private_key -P 2222 ~/.ssh/local/id_ed25519.pub vagrant@127.0.0.1:
-	cp ~/.ssh/local/id_ed25519 .vagrant/machines/dpdk/virtualbox/private_key
+build/$(APP)-static: $(SRCS-y) Makefile $(PC_FILE) | build
+	$(CC) $(CFLAGS) $(SRCS-y) -o $@ $(LDFLAGS) $(LDFLAGS_STATIC)
 
-ssh-keyscan:
-	ssh-keyscan -p 2222 127.0.0.1 >> ~/.ssh/known_hosts
+build:
+	@mkdir -p $@
+
+.PHONY: clean
+clean:
+	rm -f build/$(APP) build/$(APP)-static build/$(APP)-shared
+	rmdir --ignore-fail-on-non-empty build
+
+else # Build using legacy build system
+
+ifeq ($(RTE_SDK),)
+$(error "Please define RTE_SDK environment variable")
+endif
+
+# Default target, detect a build directory, by looking for a path with a .config
+RTE_TARGET ?= $(notdir $(abspath $(dir $(firstword $(wildcard $(RTE_SDK)/*/.config)))))
+
+include $(RTE_SDK)/mk/rte.vars.mk
+
+CFLAGS += $(WERROR_FLAGS)
+
+# workaround for a gcc bug with noreturn attribute
+# http://gcc.gnu.org/bugzilla/show_bug.cgi?id=12603
+ifeq ($(CONFIG_RTE_TOOLCHAIN_GCC),y)
+CFLAGS_main.o += -Wno-return-type
+endif
+
+EXTRA_CFLAGS += -O3 -g -Wfatal-errors
+
+include $(RTE_SDK)/mk/rte.extapp.mk
+endif

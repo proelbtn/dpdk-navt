@@ -1,13 +1,7 @@
 #!/bin/sh
 
-cd /root
-
-mv /tmp/authorized_keys ./.ssh/authorized_keys
-chown root:root ./.ssh/authorized_keys
-chmod 600 ./.ssh/authorized_keys
-
 apt update
-apt install -y build-essential libnuma-dev libpcap-dev
+apt install -y build-essential libelf-dev libnuma-dev libpcap-dev pkg-config
 
 wget http://fast.dpdk.org/rel/dpdk-19.05.tar.xz
 tar xfv dpdk-19.05.tar.xz
