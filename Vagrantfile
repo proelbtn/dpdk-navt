@@ -14,6 +14,7 @@ Vagrant.configure("2") do |config|
     config.vm.network "private_network", ip: nil, virtualbox__intnet: "dpdk-int-1"
 
     config.vm.synced_folder ".", "/host"
+    config.vm.provision "shell", path: "./scripts/provision-tests.sh"
   end
 end
 
@@ -30,6 +31,7 @@ Vagrant.configure("2") do |config|
     config.vm.network "private_network", ip: nil, virtualbox__intnet: "dpdk-int-2"
 
     config.vm.synced_folder ".", "/host"
+    config.vm.provision "shell", path: "./scripts/provision-tests.sh"
   end
 end
 
