@@ -10,6 +10,8 @@
 #include <rte_lcore.h>
 #include <rte_mbuf.h>
 
+#include "navt.h"
+
 #define RX_RING_SIZE 1024
 #define TX_RING_SIZE 1024
 
@@ -66,7 +68,7 @@ port_init(uint16_t port, struct rte_mempool *mbuf_pool)
 
 	txconf = dev_info.default_txconf;
 	txconf.offloads = port_conf.txmode.offloads;
-	/* Allocate and set up 1 TX queue per Ethernet port. */
+	/* Allocate and set up 2 TX queue per Ethernet port. */
 	for (q = 0; q < tx_rings; q++) {
 		retval = rte_eth_tx_queue_setup(port, q, nb_txd,
 				rte_eth_dev_socket_id(port), &txconf);
@@ -121,23 +123,21 @@ lcore_main(void)
 
 	/* Run until the application is quit or killed. */
 	for (;;) {
-		/*
-		 * Receive packets on a port and forward them on the paired
-		 * port. The mapping is 0 -> 1, 1 -> 0, 2 -> 3, 3 -> 2, etc.
-		 */
 		RTE_ETH_FOREACH_DEV(port) {
-
 			/* Get burst of RX packets, from first port of pair. */
 			struct rte_mbuf *bufs[BURST_SIZE];
-			const uint16_t nb_rx = rte_eth_rx_burst(port, 0,
-					bufs, BURST_SIZE);
+			uint16_t nb_valid;
+			const uint16_t nb_rx = rte_eth_rx_burst(port, 0, bufs, BURST_SIZE);
 
 			if (unlikely(nb_rx == 0))
 				continue;
 
+			/* Packet translation for NAVT */
+			if (port == 0) nb_valid = translation_ext2int(bufs, nb_rx);
+			else nb_valid = translation_ext2int(bufs, nb_rx);
+
 			/* Send burst of TX packets, to second port of pair. */
-			const uint16_t nb_tx = rte_eth_tx_burst(port ^ 1, 0,
-					bufs, nb_rx);
+			const uint16_t nb_tx = rte_eth_tx_burst(port ^ 1, 0, bufs, nb_valid);
 
 			/* Free any unsent packets. */
 			if (unlikely(nb_tx < nb_rx)) {
@@ -168,10 +168,10 @@ main(int argc, char *argv[])
 	argc -= ret;
 	argv += ret;
 
-	/* Check that there is an even number of ports to send/receive on. */
+	/* Check that there are 2 available ports. */
 	nb_ports = rte_eth_dev_count_avail();
-	if (nb_ports < 2 || (nb_ports & 1))
-		rte_exit(EXIT_FAILURE, "Error: number of ports must be even\n");
+	if (nb_ports != 2)
+		rte_exit(EXIT_FAILURE, "Error: number of ports must be 2\n");
 
 	/* Creates a new mempool in memory to hold the mbufs. */
 	mbuf_pool = rte_pktmbuf_pool_create("MBUF_POOL", NUM_MBUFS * nb_ports,
@@ -186,10 +186,13 @@ main(int argc, char *argv[])
 			rte_exit(EXIT_FAILURE, "Cannot init port %"PRIu16 "\n",
 					portid);
 
-	if (rte_lcore_count() > 1)
-		printf("\nWARNING: Too many lcores enabled. Only 1 used.\n");
+	/*
+	 * one is for the packet from internal to external, 
+	 * the other is for the packet from external to internal.
+	 */
+	if (rte_lcore_count() != 1)
+		rte_exit(EXIT_FAILURE, "Cannot start thread because the number of core isn't 1.\n");
 
-	/* Call lcore_main on the master core only. */
 	lcore_main();
 
 	return 0;

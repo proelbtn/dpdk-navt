@@ -5,7 +5,7 @@
 APP = navt
 
 # all source are stored in SRCS-y
-SRCS-y := src/main.c
+SRCS-y := src/main.c src/navt.c
 
 # Build using pkg-config variables if possible
 $(shell pkg-config --exists libdpdk)
