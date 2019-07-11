@@ -68,7 +68,7 @@ port_init(uint16_t port, struct rte_mempool *mbuf_pool)
 
 	txconf = dev_info.default_txconf;
 	txconf.offloads = port_conf.txmode.offloads;
-	/* Allocate and set up 2 TX queue per Ethernet port. */
+	/* Allocate and set up 1 TX queue per Ethernet port. */
 	for (q = 0; q < tx_rings; q++) {
 		retval = rte_eth_tx_queue_setup(port, q, nb_txd,
 				rte_eth_dev_socket_id(port), &txconf);
@@ -134,7 +134,7 @@ lcore_main(void)
 
 			/* Packet translation for NAVT */
 			if (port == 0) nb_valid = translation_ext2int(bufs, nb_rx);
-			else nb_valid = translation_ext2int(bufs, nb_rx);
+			else nb_valid = translation_int2ext(bufs, nb_rx);
 
 			/* Send burst of TX packets, to second port of pair. */
 			const uint16_t nb_tx = rte_eth_tx_burst(port ^ 1, 0, bufs, nb_valid);
