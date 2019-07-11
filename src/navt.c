@@ -29,6 +29,8 @@ static bool translation_int2ext(struct rte_mbuf *pkt) {
 
     // 3. translate ip address
     ehdr = rte_pktmbuf_mtod(pkt, struct ether_hdr *);
+    if (ehdr->ether_type != rte_cpu_to_be_16(ETHER_TYPE_IPv4)) return false;
+
     ihdr = (struct ipv4_hdr *)(ehdr + 1);
 
     uint32_t saddr = rte_be_to_cpu_32(ihdr->src_addr);
