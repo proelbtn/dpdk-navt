@@ -35,7 +35,7 @@ static bool translation_int2ext(struct rte_mbuf *pkt) {
 
     uint32_t saddr = rte_be_to_cpu_32(ihdr->src_addr);
     if ((saddr & 0xffff0000) != IPv4(192, 168, 0, 0)) return false;
-    saddr = IPv4(10, teamid, 0, 0) | (saddr & ~0xffff0000);
+    saddr = IPv4(10, teamid, 0, 0) | (saddr & 0x0000ffff);
     ihdr->src_addr = rte_cpu_to_be_32(saddr);
 
     // 4. clear checksum in ipv4_hdr
@@ -67,6 +67,50 @@ static bool translation_int2ext(struct rte_mbuf *pkt) {
 }
 
 static bool translation_ext2int(struct rte_mbuf *pkt) {
+    struct ether_hdr *ehdr;
+    struct vlan_hdr *vhdr;
+    struct ipv4_hdr *ihdr;
+    struct tcp_hdr *thdr;
+    struct udp_hdr *uhdr;
+
+    if (rte_vlan_insert(&pkt) != 0) return false;
+
+    ehdr = rte_pktmbuf_mtod(pkt, struct ether_hdr *);
+    vhdr = (struct vlan_hdr *)(ehdr + 1);
+    if (vhdr->eth_proto != rte_cpu_to_be_16(ETHER_TYPE_IPv4)) return false;
+    ihdr = (struct ipv4_hdr *)(vhdr + 1);
+
+    uint32_t daddr = rte_be_to_cpu_32(ihdr->dst_addr);
+    uint16_t teamid = (daddr & 0x00ff0000) >> 16;
+    if (!(1 <= teamid && teamid <= 16)) return false;
+
+    daddr = IPv4(192, 168, 0, 0) | (daddr & 0x0000ffff);
+    
+    vhdr->vlan_tci = rte_cpu_to_be_16(teamid * 100); // TODO: add offset term
+    ihdr->dst_addr = rte_cpu_to_be_32(daddr);
+
+    ihdr->hdr_checksum = 0;
+
+    switch (ihdr->next_proto_id) {
+        case IPPROTO_ICMP:
+            break;
+        case IPPROTO_TCP:
+            thdr = (struct tcp_hdr *)((char *)ihdr + sizeof(struct ipv4_hdr));
+            thdr->cksum = 0;
+            thdr->cksum = rte_ipv4_udptcp_cksum(ihdr, thdr);
+            break;
+        case IPPROTO_UDP:
+            uhdr = (struct udp_hdr *)((char *)ihdr + sizeof(struct ipv4_hdr));
+            uhdr->dgram_cksum = 0;
+            uhdr->dgram_cksum = rte_ipv4_udptcp_cksum(ihdr, uhdr);
+            break;
+        default:
+            // if ihdr->next_proto_id isn't expected value, the packet will be drop
+            return false;
+    }
+
+    ihdr->hdr_checksum = rte_ipv4_cksum(ihdr);
+
     return true;
 }
 

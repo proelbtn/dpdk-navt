@@ -7,11 +7,22 @@ if __name__ == "__main__":
 
     dev = sys.argv[1]
 
-    pkt = Ether()
-    pkt /= ARP(op=1, pdst="172.26.0.1")
+    pkt = Ether(dst="02:00:00:00:00:01", src="02:00:00:00:00:ff")
+    pkt /= IP(src="172.31.50.1", dst="10.1.0.1")
+    pkt /= TCP(sport=22, dport=12345)
     sendp(pkt, iface=dev)
 
-    pkt = Ether()
-    pkt /= IP(dst="172.26.0.1")
-    pkt /= ICMP()
+    pkt = Ether(dst="02:00:00:00:00:01", src="02:00:00:00:00:ff")
+    pkt /= IP(src="172.31.50.1", dst="10.2.0.1")
+    pkt /= TCP(sport=22, dport=12345)
+    sendp(pkt, iface=dev)
+
+    pkt = Ether(dst="02:00:00:00:00:01", src="02:00:00:00:00:ff")
+    pkt /= IP(src="172.31.50.1", dst="10.1.0.1")
+    pkt /= UDP(sport=22, dport=12345)
+    sendp(pkt, iface=dev)
+
+    pkt = Ether(dst="02:00:00:00:00:01", src="02:00:00:00:00:ff")
+    pkt /= IP(src="172.31.50.1", dst="10.2.0.1")
+    pkt /= UDP(sport=22, dport=12345)
     sendp(pkt, iface=dev)
