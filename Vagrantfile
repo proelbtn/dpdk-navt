@@ -42,10 +42,11 @@ Vagrant.configure("2") do |c|
     c.vm.provider "virtualbox" do |v|
       v.cpus = 4
       v.memory = 8192
+      v.customize ["modifyvm", :id, "--nicpromisc2", "allow-all", "--nicpromisc3", "allow-all"]
     end
 
-    c.vm.network "private_network", ip: nil, virtualbox__intnet: "dpdk-int-1", nic_type: "virtio"
-    c.vm.network "private_network", ip: nil, virtualbox__intnet: "dpdk-int-2", nic_type: "virtio"
+    c.vm.network "private_network", ip: nil, virtualbox__intnet: "dpdk-int-1", nic_type: "82545EM"
+    c.vm.network "private_network", ip: nil, virtualbox__intnet: "dpdk-int-2", nic_type: "82545EM"
 
     c.vm.synced_folder ".", "/host"
     c.vm.provision "shell", path: "./scripts/provision-dpdk.sh"
