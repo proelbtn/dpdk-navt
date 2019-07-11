@@ -7,11 +7,26 @@ if __name__ == "__main__":
 
     dev = sys.argv[1]
 
-    pkt = Ether()
-    pkt /= ARP(op=1, pdst="172.26.0.254")
+    pkt = Ether(dst="02:00:00:00:00:01", src="02:00:00:00:00:ff")
+    pkt /= Dot1Q(vlan=100)
+    pkt /= IP(src="192.168.0.1", dst="172.31.50.1")
+    pkt /= TCP(sport=12345, dport=22)
     sendp(pkt, iface=dev)
 
-    pkt = Ether()
-    pkt /= IP(dst="172.26.0.254")
-    pkt /= ICMP()
+    pkt = Ether(dst="02:00:00:00:00:01", src="02:00:00:00:00:ff")
+    pkt /= Dot1Q(vlan=200)
+    pkt /= IP(src="192.168.0.1", dst="172.31.50.1")
+    pkt /= TCP(sport=12345, dport=22)
+    sendp(pkt, iface=dev)
+
+    pkt = Ether(dst="02:00:00:00:00:01", src="02:00:00:00:00:ff")
+    pkt /= Dot1Q(vlan=100)
+    pkt /= IP(src="192.168.0.1", dst="172.31.50.1")
+    pkt /= UDP(sport=12345, dport=22)
+    sendp(pkt, iface=dev)
+
+    pkt = Ether(dst="02:00:00:00:00:01", src="02:00:00:00:00:ff")
+    pkt /= Dot1Q(vlan=200)
+    pkt /= IP(src="192.168.0.1", dst="172.31.50.1")
+    pkt /= UDP(sport=12345, dport=22)
     sendp(pkt, iface=dev)

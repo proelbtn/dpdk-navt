@@ -98,16 +98,15 @@ port_init(uint16_t port, struct rte_mempool *mbuf_pool)
 }
 
 /*
- * The lcore main. This is the main thread that does the work, reading from
- * an input port and writing to an output port.
+ * Single Thread Mode:
+ *   In this mode, the core works for int2ext packets and ext2int packets
  */
 static __attribute__((noreturn)) void
-lcore_main(void)
+single_thread_main(void)
 {
 	uint16_t port;
 
-	printf("\nCore %u forwarding packets. [Ctrl+C to quit]\n",
-			rte_lcore_id());
+	printf("\nCore %u forwarding packets. [Ctrl+C to quit]\n", rte_lcore_id());
 
 	/* Run until the application is quit or killed. */
 	for (;;) {
@@ -121,11 +120,13 @@ lcore_main(void)
 				continue;
 
 			/* Packet translation for NAVT */
-			if (port == 0) nb_valid = translation_ext2int(bufs, nb_rx);
-			else nb_valid = translation_int2ext(bufs, nb_rx);
+			if (port == 0) nb_valid = translation(bufs, nb_rx, NAVT_EXT2INT);
+			else nb_valid = translation(bufs, nb_rx, NAVT_INT2EXT);
 
 			/* Send burst of TX packets, to second port of pair. */
 			const uint16_t nb_tx = rte_eth_tx_burst(port ^ 1, 0, bufs, nb_valid);
+
+			printf("rx = %d, valid = %d, tx = %d\n", nb_rx, nb_valid, nb_tx);
 
 			/* Free any unsent packets. */
 			if (unlikely(nb_tx < nb_rx)) {
@@ -146,7 +147,7 @@ main(int argc, char *argv[])
 {
 	struct rte_mempool *mbuf_pool;
 	unsigned nb_ports;
-	uint16_t portid;
+	uint16_t port;
 
 	/* Initialize the Environment Abstraction Layer (EAL). */
 	int ret = rte_eal_init(argc, argv);
@@ -158,6 +159,7 @@ main(int argc, char *argv[])
 
 	/* Check that there are 2 available ports. */
 	nb_ports = rte_eth_dev_count_avail();
+
 	if (nb_ports != 2)
 		rte_exit(EXIT_FAILURE, "Error: number of ports must be 2\n");
 
@@ -169,19 +171,18 @@ main(int argc, char *argv[])
 		rte_exit(EXIT_FAILURE, "Cannot create mbuf pool\n");
 
 	/* Initialize all ports. */
-	RTE_ETH_FOREACH_DEV(portid)
-		if (port_init(portid, mbuf_pool) != 0)
-			rte_exit(EXIT_FAILURE, "Cannot init port %"PRIu16 "\n",
-					portid);
+	RTE_ETH_FOREACH_DEV(port)
+		if (port_init(port, mbuf_pool) != 0)
+			rte_exit(EXIT_FAILURE, "Cannot init port %u\n", port);
 
-	/*
-	 * one is for the packet from internal to external, 
-	 * the other is for the packet from external to internal.
-	 */
-	if (rte_lcore_count() != 1)
-		rte_exit(EXIT_FAILURE, "Cannot start thread because the number of core isn't 1.\n");
-
-	lcore_main();
+	/* Switch mode according to the number of cores */
+	switch (rte_lcore_count()) {
+		case 1:
+			single_thread_main();
+		case 2:
+		default:
+			rte_exit(EXIT_FAILURE, "Cannot start thread because the number of core isn't 1 or 2.\n");
+	}
 
 	return 0;
 }
