@@ -1,0 +1,39 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |c|
+  c.vm.define "EXT" do |c|
+    c.vm.box = "ubuntu/bionic64"
+    c.vm.network "private_network", ip: "172.26.0.254", virtualbox__intnet: "dpdk-navt-01"
+    c.vm.provider "virtualbox" do |v|
+      v.cpus = 1
+      v.memory = 1024
+      v.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+    end
+    c.vm.provision "shell", path: "./scripts/ext.sh"
+  end
+
+  c.vm.define "NAVT" do |c|
+    c.vm.box = "ubuntu/bionic64"
+    c.vm.network "private_network", ip: "172.26.0.254", virtualbox__intnet: "dpdk-navt-01", nic_type: "82545EM"
+    c.vm.network "private_network", ip: "172.26.0.1", virtualbox__intnet: "dpdk-navt-02", nic_type: "82545EM"
+    c.vm.provider "virtualbox" do |v|
+      v.cpus = 4
+      v.memory = 4096
+      v.customize ["modifyvm", :id, "--nicpromisc2", "allow-all", "--nicpromisc3", "allow-all"]
+    end
+    c.vm.synced_folder "../..", "/host"
+    c.vm.provision "shell", path: "./scripts/navt.sh"
+  end
+
+  c.vm.define "INT" do |c|
+    c.vm.box = "ubuntu/bionic64"
+    c.vm.network "private_network", ip: "172.26.0.1", virtualbox__intnet: "dpdk-navt-02"
+    c.vm.provider "virtualbox" do |v|
+      v.cpus = 1
+      v.memory = 1024
+      v.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
+    end
+    c.vm.provision "shell", path: "./scripts/int.sh"
+  end
+end
